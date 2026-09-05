@@ -1,0 +1,21 @@
+{
+  "surname": "路",
+  "introText": "",
+  "generations": [
+    {
+      "title": "第一世",
+      "people": [
+        {
+          "givenName": "世昌",
+          "spouse": "赵氏",
+          "note": "",
+          "sons": [
+            { "givenName": "", "sex": "m" },
+            { "givenName": "", "sex": "m" },
+            { "givenName": "", "sex": "m" }
+          ]
+        }
+      ]
+    }
+  ]
+}
