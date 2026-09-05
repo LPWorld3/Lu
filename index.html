@@ -54,23 +54,47 @@ body {
 /* ================= 正文 ================= */
 #main {
   margin-right: 120px;   /* 预留导航空间，防遮挡 */
-  padding: 24px 28px 90px;
-  min-height: 100vh;
+  padding: 20px 28px;
+  height: 100vh;
+  box-sizing: border-box;
+  display: flex; flex-direction: column;   /* 页头/介绍固定高，树区吃掉剩余高度 */
+  overflow: auto;
   direction: rtl; text-align: right;
+}
+#pageHeader, #introSlot { flex: 0 0 auto; }
+/* 页头：标题与按钮一行排布（官网式左右两模块，无分隔线） */
+#pageHeader {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: nowrap;
+  margin-bottom: 20px;
 }
 #main h1 {
   font-size: 26px; color: var(--accent); font-weight: 700;
-  padding-bottom: 10px; border-bottom: 2px solid var(--line);
-  margin-bottom: 14px;
+  border-bottom: none;              /* 去掉分隔线 */
+  margin-bottom: 0;
+  white-space: nowrap;
 }
 #introSlot {
   background: #fdfaf1;
   border: 2px dashed #c9b896;
   border-radius: 12px;
   padding: 18px 20px;
-  margin-bottom: 22px;
-  min-height: 90px;
-  color: #a08c62; font-size: 15px; line-height: 1.9;
+  margin: 0 auto 22px;            /* 框居中 */
+  color: #a08c62; font-size: 15px;
+  writing-mode: vertical-rl;      /* 古文格式：竖排，列从右往左排 */
+  direction: ltr;                 /* 字从上往下写（每列顶部起） */
+  text-align: start;              /* 上对齐 */
+  height: 85px;                   /* 每列恰好5字（15px字＋2px字距）×5 */
+  box-sizing: content-box;        /* 高度按内容算，不受全局border-box影响 */
+  width: max-content;             /* 框宽随列数自适应，列距拉远后整框居中 */
+  max-width: 100%;
+  line-height: 4;                 /* 列间距拉远 */
+  letter-spacing: 2px;
+  overflow: auto;
 }
 #introSlot .ph { color: var(--ph); }
 
@@ -82,10 +106,14 @@ body {
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(0,0,0,.06);
   overflow: auto;               /* 树可平移 */
-  max-height: calc(100vh - 260px);
+  flex: 1 1 auto; min-height: 260px;   /* 自动吃掉页面剩余高度，底部不留空白条 */
   direction: ltr;               /* 画布内部用绝对定位，方向无关 */
+  cursor: grab;                 /* 拖拽平移 */
+  touch-action: none;           /* 触屏拖拽由指针事件接管 */
 }
-#tree { position: relative; direction: ltr; }
+#treeWrap.dragging { cursor: grabbing; user-select: none; }
+#treeSizer { position: relative; }   /* 尺寸 = 画布 × 缩放比例，负责撑出滚动范围 */
+#tree { position: absolute; left: 0; top: 0; direction: ltr; transform-origin: 0 0; }   /* transform 缩放不占布局 */
 
 /* 世代悬浮标签：悬浮于树视口右上角，随滚动更新，不占版面 */
 #genFloat {
@@ -98,6 +126,40 @@ body {
   white-space: nowrap;
 }
 
+/* 缩放控件：悬浮于树视口右下角，随滚动更新位置 */
+#zoomBar {
+  position: absolute; z-index: 30;
+  display: flex; align-items: center; gap: 2px;
+  background: rgba(255,253,247,.95);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 3px 8px; box-shadow: 0 2px 6px rgba(0,0,0,.12);
+  user-select: none;
+}
+#zoomBar .zbBtn {
+  cursor: pointer; font-size: 15px; line-height: 1;
+  padding: 4px 9px; color: var(--text); border-radius: 6px;
+}
+#zoomBar .zbBtn:hover { background: var(--soft); }
+#zoomBar .zbFit { font-size: 12px; }
+#zoomPct { font-size: 12px; color: #8a6d3b; min-width: 40px; text-align: center; }
+
+/* 人物信息面板：点画布卡片展开（悬浮左下角，随滚动固定） */
+#infoPanel {
+  position: absolute; z-index: 28;
+  min-width: 210px; max-width: 330px;
+  background: rgba(255,253,247,.97);
+  border: 1.5px solid var(--accent); border-radius: 12px;
+  padding: 10px 14px; box-shadow: 0 4px 14px rgba(0,0,0,.18);
+}
+#infoHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+#infoHead b { font-size: 16px; color: var(--accent); }
+#infoClose { cursor: pointer; color: #8a6d3b; font-size: 14px; padding: 2px 6px; }
+#infoClose:hover { color: var(--accent); }
+#infoBody .ir { font-size: 13px; line-height: 1.9; color: var(--text); word-break: break-all; }
+#infoBody .irWarn { color: #c0392b; }
+#infoBody .infoBtns { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+#infoBody .infoBtns .delBtn { margin-top: 0; }
+
 /* 人物节点（卡片式，参考截图红框） */
 .node {
   position: absolute;
@@ -105,8 +167,8 @@ body {
   text-align: right;                  /* 所有内容靠右对齐（谱牒式） */
   direction: rtl;
   cursor: pointer;
-  width: 130px; height: 96px;
-  padding: 14px 10px 8px 8px;
+  width: 130px; min-height: 96px; height: auto;   /* 高度自适应：配偶/备注换行后卡片随之撑高 */
+  padding: 14px 10px 26px 8px;        /* 底部预留「＋添加子女」按钮空间 */
   line-height: 1.35;
   background: #fffdf7;
   border: 2px solid #d94f3b;          /* 截图红框 */
@@ -140,8 +202,15 @@ body {
   padding: 0 5px; white-space: nowrap;
   pointer-events: none; z-index: 1;
 }
-.node .sp { font-size: 12px; color: #7a6644; white-space: nowrap; margin-top: 2px; }
-.node .bd { font-size: 11px; color: #8a6d3b; white-space: nowrap; margin-top: 1px; }
+.node .sp {
+  font-size: 12px; color: #7a6644; margin-top: 2px;
+  white-space: normal; word-break: break-all; overflow: hidden;   /* 多位配偶自动换行 */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.node .bd {
+  font-size: 11px; color: #8a6d3b; margin-top: 1px;
+  white-space: normal; word-break: break-all;   /* 生卒文字过长时换行，不横向溢出 */
+}
 .node .note {
   font-size: 11px; color: #a08c62; margin-top: 1px;
   white-space: normal;              /* 备注自动换行，不再横向溢出卡片 */
@@ -149,8 +218,11 @@ body {
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   max-height: 45px;                 /* 最多约3行，防止撑破固定高度卡片 */
 }
+.node .cardBtns {
+  position: absolute; top: 4px; left: 4px;   /* 内容靠右，操作钮放左上避免遮挡 */
+  display: flex; gap: 3px;
+}
 .node .editBtn {
-  position: absolute; top: 4px; left: 4px;   /* 内容靠右，编辑钮放左上避免遮挡 */
   font-size: 11px; line-height: 1;
   padding: 2px 6px;
   background: var(--accent); color: #fff;
@@ -158,6 +230,34 @@ body {
   cursor: pointer; opacity: .9;
 }
 .node .editBtn:hover { opacity: 1; background: #8a2a1b; }
+.node .cardDelBtn {
+  font-size: 11px; line-height: 1;
+  padding: 2px 6px;
+  background: #c0392b; color: #fff;
+  border-radius: 4px;
+  cursor: pointer; opacity: .9;
+}
+.node .cardDelBtn:hover { opacity: 1; background: #a5281c; }
+/* 待录占位卡右上角的 ✕：点击直接移除该空槽 */
+.node .phDel {
+  position: absolute; top: 3px; right: 5px;
+  font-size: 11px; line-height: 1;
+  padding: 1px 5px;
+  background: #c0392b; color: #fff;
+  border-radius: 4px;
+  cursor: pointer; opacity: .8;
+}
+.node .phDel:hover { opacity: 1; background: #a5281c; }
+/* 人物卡下部的「＋」：直接为该人添加子女 */
+.node .cardAdd {
+  position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+  font-size: 12px; line-height: 1;
+  padding: 2px 9px;
+  background: var(--accent); color: #fff;
+  border-radius: 9px;
+  cursor: pointer; opacity: .75;
+}
+.node .cardAdd:hover { opacity: 1; background: #8a2a1b; }
 
 /* 备份提示条 */
 #toast {
@@ -169,6 +269,11 @@ body {
 }
 #toast.show { opacity: .95; }
 .node:hover { border-color: #a03d2a; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+/* 查询定位：目标卡片高亮闪烁 */
+.node.locate-flash {
+  border-color: #8a2a1b;
+  box-shadow: 0 0 0 5px rgba(217, 79, 59, .4), 0 2px 12px rgba(0,0,0,.25);
+}
 .node.ph {
   background: transparent;
   border-style: dashed;
@@ -250,8 +355,15 @@ body {
   background: #c0392b; color: #fff; font-size: 12px; cursor: pointer;
 }
 .delBtn:hover { opacity: .85; }
+/* 查询定位按钮：覆盖 delBtn 红色，改用蓝色 */
+.locateBtn {
+  background: #2c5f8a;
+  margin-top: 8px;
+  padding: 4px 16px;
+}
+.locateBtn:hover { background: #234d70; opacity: 1; }
 
-#toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 16px; }
+#toolbar { display: flex; align-items: center; flex-wrap: nowrap; gap: 10px; }
 #toolbar button {
   padding: 9px 20px; border: none; border-radius: 20px; cursor: pointer;
   font-size: 15px; background: var(--accent); color: #fff;
@@ -278,13 +390,15 @@ body {
   }
   #genNav .navTitle { display: none; }
   #genNav a { margin-top: 0; padding: 6px 12px; flex: 0 0 auto; }
-  #main { margin-right: 0; padding: 62px 14px 90px; }
+  #main { margin-right: 0; padding: 62px 14px 20px; display: block; height: auto; overflow: visible; }
+  #treeWrap { flex: none; height: calc(100vh - 200px); min-height: 240px; }
   #toolbar { display: none; }
-  .node { width: 104px; height: 96px; padding: 12px 6px 8px; }
+  .node { width: 104px; min-height: 96px; height: auto; padding: 12px 6px 24px; }
   .node .nm { font-size: 15px; }
   .node.root .nm { font-size: 20px; }
   .node .sp { font-size: 10px; }
-  .node .editBtn { font-size: 10px; padding: 1px 4px; }
+  .node .editBtn, .node .cardDelBtn, .node .phDel { font-size: 10px; padding: 1px 4px; }
+  .node .cardAdd { font-size: 10px; padding: 2px 7px; }
 }
 </style>
 </head>
@@ -298,9 +412,10 @@ body {
 
 <!-- ============ 正文 ============ -->
 <main id="main">
-  <h1>路氏族谱</h1>
+  <header id="pageHeader">
+    <h1>路氏族谱</h1>
 
-  <div id="toolbar">
+    <div id="toolbar">
     <button class="ghost editOnly" onclick="exportData()" title="自动保存到已绑定的备份文件；首次使用需选择一次保存位置">备份数据</button>
     <button class="ghost editOnly" onclick="document.getElementById('importFile').click()" title="从备份文件恢复数据">恢复数据</button>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
@@ -310,7 +425,8 @@ body {
       <input type="checkbox" id="fToggleChk" onchange="toggleFemale(this.checked)">女性名字
     </label>
     <button class="editOnly" onclick="openAdd()">＋ 添加</button>
-  </div>
+    </div>
+  </header>
 
   <!-- 预留文本展示位置（占位，后续填入一段话） -->
   <section id="introSlot">
@@ -318,7 +434,20 @@ body {
   </section>
 
   <!-- 树画布 -->
-  <div id="treeWrap"><div id="tree"></div><div id="genFloat">第一世</div></div>
+  <div id="treeWrap">
+    <div id="treeSizer"><div id="tree"></div></div>
+    <div id="zoomBar">
+      <span class="zbBtn" onclick="zoomBy(1/1.25)" title="缩小">－</span>
+      <span id="zoomPct">100%</span>
+      <span class="zbBtn" onclick="zoomBy(1.25)" title="放大">＋</span>
+      <span class="zbBtn zbFit" onclick="fitTree()" title="自适应：一屏看全部内容">⛶ 适应</span>
+    </div>
+    <div id="genFloat">第一世</div>
+    <div id="infoPanel" style="display:none">
+      <div id="infoHead"><b id="infoName"></b><span id="infoClose" onclick="hideInfo()">✕</span></div>
+      <div id="infoBody"></div>
+    </div>
+  </div>
 </main>
 
 <!-- ============ 弹窗 ============ -->
@@ -329,8 +458,17 @@ body {
       <button onclick="openQuery()">🔍 查询</button>
       <button class="editOnly" onclick="openAdd()">＋ 添加</button>
       <button id="fToggleMenu" onclick="toggleFemale()">👧 女性名字</button>
+      <button class="editOnly" onclick="openCheckup()">🩺 数据体检</button>
+      <button class="editOnly" onclick="openSnapTool()">⏱ 自动快照</button>
       <button class="editOnly" onclick="exportData()">💾 备份数据</button>
       <button class="editOnly" onclick="document.getElementById('importFile').click()">📂 恢复数据</button>
+    </div>
+    <div id="checkupView" style="display:none">
+      <div class="dlgBtns" style="justify-content:flex-start;margin-bottom:8px;">
+        <button class="ghost" onclick="cleanupPlaceholders()">🧹 清理全部待录占位</button>
+      </div>
+      <div id="checkupResult"></div>
+      <div class="dlgBtns"><button class="ghost" onclick="showMenu()">返回</button></div>
     </div>
     <div id="queryView" style="display:none">
       <label>输入人名查询</label>
@@ -353,6 +491,14 @@ body {
           <button type="button" class="ghost" style="width:44px;margin:0;font-size:18px;line-height:1.2;" onclick="adjustSonCount(-1)">－</button>
           <span id="sonCountDisp" style="flex:1;text-align:center;font-size:16px;font-weight:700;color:var(--text);">0</span>
           <button type="button" class="ghost" style="width:44px;margin:0;font-size:18px;line-height:1.2;" onclick="adjustSonCount(1)">＋</button>
+        </div>
+      </div>
+      <div id="addDauRow" style="display:none">
+        <label>女的数量（设置后卡片显示"X子X女"；不设置则卡片只显示"X子"）</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button type="button" class="ghost" style="width:44px;margin:0;font-size:18px;line-height:1.2;" onclick="adjustDaughterCount(-1)">－</button>
+          <span id="dauCountDisp" style="flex:1;text-align:center;font-size:16px;font-weight:700;color:var(--text);">0</span>
+          <button type="button" class="ghost" style="width:44px;margin:0;font-size:18px;line-height:1.2;" onclick="adjustDaughterCount(1)">＋</button>
         </div>
       </div>
       <label>配偶</label>
@@ -407,8 +553,8 @@ body {
    ============================================================ */
 const GENEALOGY = window.ZUPU_DATA;;
 
-const LS_KEY = 'zupu_data_v3';       // v3：子嗣位全部为「子」
-const LS_KEY_OLD = 'zupu_data_v2';   // 旧版本键，迁移后弃用
+const LS_KEY = 'zupu_data_v4';       // v4：初始数据更新（祖源记文等）可透传进浏览器旧缓存
+const LS_KEY_OLD = 'zupu_data_v3';   // v3 键弃用，读取后迁移写入 v4
 /* 只读发布模式：true 时页面仅展示数据，隐藏添加/编辑/删除/备份等所有入口，
    数据改由外部 data.js 提供、不再读写 localStorage（GitHub Pages 发布用，见 build_github.js） */
 const READ_ONLY = true;
@@ -428,6 +574,8 @@ function loadData() {
     } catch (e) {}
   }
   if (!d) d = JSON.parse(JSON.stringify(GENEALOGY));
+  /* 介绍文字为空时，用初始数据里的最新内容补上（否则旧缓存会一直盖住新填的祖源记文） */
+  if ((!d.introText || !String(d.introText).trim()) && GENEALOGY.introText) d.introText = GENEALOGY.introText;
   return migrate(d, fromOld);
 }
 /* 迁移：子嗣位（sons）里只放「子」——
@@ -461,6 +609,7 @@ function buildTree() {
   // 节点: { id, name, gen, father, spouse, isPh, gi, pi, si, person }
   const nodes = [];
   const byKey = {};
+  const claimed = new Set();   // 已被父系条目认领的正式人物 key（g{gi}p{pi}）
   DATA.generations.forEach((g, gi) => {
     g.people.forEach((p, pi) => {
       const id = 'g' + gi + 'p' + pi;
@@ -471,14 +620,17 @@ function buildTree() {
     });
   });
   // sons → 子节点（填名则关联下一世代同名人物，否则占位节点）
+  // 特例：同胞同名——同一父亲可有多个同名条目，按顺序各自认领一个未认领的同名正式人物
   DATA.generations.forEach((g, gi) => {
     g.people.forEach((p, pi) => {
       (p.sons || []).forEach((s, si) => {
         const fid = 'g' + gi + 'p' + pi;
         if (s.givenName) {
           const next = DATA.generations[gi + 1];
-          const idx = next ? next.people.findIndex(x => x.givenName === s.givenName) : -1;
+          const idx = next ? next.people.findIndex((x, xi) =>
+            x.givenName === s.givenName && !claimed.has((gi + 1) + 'p' + xi)) : -1;
           if (idx >= 0) {
+            claimed.add((gi + 1) + 'p' + idx);
             byKey['g' + (gi + 1) + 'p' + idx].father = fid;
           } else {
             const id = 's' + gi + '_' + pi + '_' + si;
@@ -494,6 +646,21 @@ function buildTree() {
     });
   });
   return nodes;
+}
+
+/* 找出「认领」某正式人物的父系条目（与 buildTree 融合逻辑一致）。
+   返回 { fgi, fpi, si }；无父系连线时返回 null。
+   同名人物场景下，只有这条条目属于本人——删除/改名只准动它，
+   否则会误清其他同名人物（如始祖支系）的父系连线。 */
+function findClaimingEntry(gi, pi) {
+  const claimed = new Map();   // 'g{gi}p{pi}' -> { fgi, fpi, si }
+  DATA.generations.forEach((g, ggi) => g.people.forEach((p, pi) => (p.sons || []).forEach((s, si) => {
+    if (!s.givenName) return;
+    const next = DATA.generations[ggi + 1];
+    const idx = next ? next.people.findIndex((x, xi) => x.givenName === s.givenName && !claimed.has((ggi + 1) + 'p' + xi)) : -1;
+    if (idx >= 0) claimed.set((ggi + 1) + 'p' + idx, { fgi: ggi, fpi: pi, si });
+  })));
+  return claimed.get(gi + 'p' + pi) || null;
 }
 
 function layoutTree(nodes) {
@@ -535,6 +702,7 @@ function layoutTree(nodes) {
 }
 
 const SLOT_W = 150, GEN_H = 170, PAD_X = 120, PAD_Y = 90;
+let CUR_PAD_X = PAD_X, CUR_PAD_Y = PAD_Y;   // render 时按显示区大小动态调整（画布撑满+内容居中）
 
 function render() {
   /* 世代导航 */
@@ -565,30 +733,91 @@ function render() {
   const byId = {};
   treeNodes.forEach(n => byId[n.id] = n);
   const maxSlot = Math.max(0, ...xpos.values());
-  const W = PAD_X * 2 + (maxSlot + 1) * SLOT_W;
-  const H = PAD_Y * 2 + (genMax + 1) * GEN_H;
+  /* 画布至少撑满显示区（蓝框大小）；内容不足时在画布内居中，四周不留可滚动的空白 */
+  const wrap = document.getElementById('treeWrap');
+  const availW = Math.max(0, (wrap.clientWidth || 0) - 2);
+  const availH = Math.max(0, (wrap.clientHeight || 0) - 2);
+  const contentW = (maxSlot + 1) * SLOT_W;
+  const contentH = (genMax + 1) * GEN_H;
+  let padX = PAD_X, padY = PAD_Y;
+  if (contentW + PAD_X * 2 < availW) padX = (availW - contentW) / 2;
+  if (contentH + PAD_Y * 2 < availH) padY = (availH - contentH) / 2;
+  CUR_PAD_Y = padY; CUR_PAD_X = padX;   // 供世代悬浮标签定位使用
+  const W = Math.max(contentW + padX * 2, availW);
+  const H = Math.max(contentH + padY * 2, availH);
 
   const tree = document.getElementById('tree');
   tree.innerHTML = '';
+  hideInfo();                    // 数据/结构刷新后旧信息面板作废
   tree.style.width = W + 'px';
   tree.style.height = H + 'px';
-  const cxOf = id => PAD_X + xpos.get(id) * SLOT_W + SLOT_W / 2;   // 中心 x
-  const cyOf = gen => PAD_Y + gen * GEN_H + GEN_H / 2;              // 行中心 y
+  TREE_W = W; TREE_H = H;        // 供缩放上下限计算（fit / 一屏三行）
+  const cxOf = id => padX + xpos.get(id) * SLOT_W + SLOT_W / 2;   // 中心 x
+  const cyOf = gen => padY + gen * GEN_H + GEN_H / 2;              // 行中心 y
   const ROOT_H = 60, CARD_H = 96;                                    // 节点整高（与 CSS .node height 一致）
   const nodeHalfH = n => n.gen === 0 ? ROOT_H / 2 : CARD_H / 2;
 
-  /* 连线（横平竖直：竖→横→竖） */
+  /* 画布层：SVG 连线层（在卡片下方） */
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('width', W); svg.setAttribute('height', H);
   svg.style.position = 'absolute'; svg.style.left = '0'; svg.style.top = '0';
   svg.style.pointerEvents = 'none';
   tree.appendChild(svg);
+
+  /* 节点先入画布（卡片高度自适应后，连线端点需要卡片实际高度） */
+  const nodeDivs = {};
+  for (const n of visNodes) {
+    const div = document.createElement('div');
+    div.className = 'node' + (n.isPh ? ' ph' : '') + (n.gen === 0 ? ' root' : '');
+    div.id = 'znode-' + n.id;          // 供查询定位 scrollIntoView 使用
+    div.style.left = cxOf(n.id) + 'px';
+    div.style.top = cyOf(n.gen) + 'px';
+    /* 几子几女：完全根据已填写内容统计，只读展示、不可调整 */
+    let kidsTxt = '';
+    if (n.person) {
+      const ks = kidsStats(n.person);
+      if (ks.sons + ks.daughters > 0) {
+        /* 卡片展示规则：设置了「女的数量」才显示 X子X女；未设置则只显示 X子 */
+        const dauTxt = (n.person.daughterCount != null && ks.daughters > 0) ? ' 女' + ks.daughters : '';
+        kidsTxt = `<span class="kids">（子${ks.sons}${dauTxt}）</span>`;
+      }
+    }
+    const bdTxt = n.person ? [n.person.birth, n.person.death].filter(Boolean).join(' – ') : '';
+    const editBtn = (!READ_ONLY && !n.isPh) ? `<span class="editBtn" onclick="openEdit(${n.gi},${n.pi}); event.stopPropagation();">编辑</span>` : '';
+    const cardDelBtn = (!READ_ONLY && !n.isPh) ? `<span class="cardDelBtn" title="删除此人（父系条目恢复占位）" onclick="delPerson(${n.gi},${n.pi}); event.stopPropagation();">删除</span>` : '';
+    const cardAddBtn = (!READ_ONLY && !n.isPh) ? `<span class="cardAdd" title="为「${esc(n.name)}」添加子女" onclick="openAdd(${n.gi},${n.pi}); event.stopPropagation();">＋</span>` : '';
+    div.innerHTML = n.isPh
+      ? `${!READ_ONLY ? `<span class="phDel" title="删除此占位" onclick="delPh(${n.gi},${n.pi},${n.si}); event.stopPropagation();">✕</span>` : ''}<div class="nm">${ordOfSons(n.gi, n.pi, n.si)}（待录）</div>`
+      : `${(editBtn || cardDelBtn) ? `<span class="cardBtns">${editBtn}${cardDelBtn}</span>` : ''}<div class="nm">${esc(n.name)}${kidsTxt}</div>
+         ${n.spouse ? `<div class="sp">配 ${esc(n.spouse)}</div>` : ''}
+         ${bdTxt ? `<div class="bd">${esc(bdTxt)}</div>` : ''}
+         ${n.note ? `<div class="note">${esc(n.note)}</div>` : ''}
+         ${cardAddBtn}`;
+    if (n.isPh) {
+      div.onclick = READ_ONLY ? null : () => openAdd(n.gi, n.pi, n.si);
+      if (READ_ONLY) div.style.cursor = 'default';
+    } else if (n.person) {
+      div.onclick = () => showInfo(n.gi, n.pi);        // 点卡片 → 展开信息面板（查询只用顶部按钮）
+    } else {
+      div.onclick = () => showInfoSon(n.gi, n.pi, n.si);   // 未登记的名条 → 展开挂线信息
+    }
+    tree.appendChild(div);
+    nodeDivs[n.id] = div;
+  }
+  /* 卡片半高：优先用实际渲染高度（内容换行撑高后连线仍贴合卡片边缘），取不到时回退常量 */
+  const halfOf = n => {
+    const el = nodeDivs[n.id];
+    const h = el && el.offsetHeight;
+    return h ? h / 2 : nodeHalfH(n);
+  };
+
+  /* 连线（横平竖直：竖→横→竖） */
   for (const n of visNodes) {
     if (!n.father) continue;
     const parent = byId[n.father];
     const fx = cxOf(n.father), cx = cxOf(n.id);
-    const fy = cyOf(parent.gen) + nodeHalfH(parent);
-    const ty = cyOf(n.gen) - nodeHalfH(n);
+    const fy = cyOf(parent.gen) + halfOf(parent);
+    const ty = cyOf(n.gen) - halfOf(n);
     const midY = (fy + ty) / 2;
     const d = `M${fx} ${fy} V${midY} H${cx} V${ty}`;
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -615,39 +844,8 @@ function render() {
     tag.className = 'genTag';
     tag.textContent = (DATA.generations[g] && DATA.generations[g].title) || genTitleOf(g + 1);
     tag.style.right = '14px';
-    tag.style.top = (PAD_Y + g * GEN_H + GEN_H / 2) + 'px';
+    tag.style.top = (padY + g * GEN_H + GEN_H / 2) + 'px';
     tree.appendChild(tag);
-  }
-
-  /* 节点 */
-  for (const n of visNodes) {
-    const div = document.createElement('div');
-    div.className = 'node' + (n.isPh ? ' ph' : '') + (n.gen === 0 ? ' root' : '');
-    div.style.left = cxOf(n.id) + 'px';
-    div.style.top = cyOf(n.gen) + 'px';
-    /* 几子几女：完全根据已填写内容统计，只读展示、不可调整 */
-    let kidsTxt = '';
-    if (n.person) {
-      const ks = kidsStats(n.person);
-      if (ks.sons + ks.daughters > 0) {
-        kidsTxt = `<span class="kids">（子${ks.sons}${ks.daughters > 0 ? ' 女' + ks.daughters : ''}）</span>`;
-      }
-    }
-    const bdTxt = n.person ? [n.person.birth, n.person.death].filter(Boolean).join(' – ') : '';
-    const editBtn = (!READ_ONLY && !n.isPh) ? `<span class="editBtn" onclick="openEdit(${n.gi},${n.pi}); event.stopPropagation();">编辑</span>` : '';
-    div.innerHTML = n.isPh
-      ? `<div class="nm">${ordOfSons(n.gi, n.pi, n.si)}（待录）</div>`
-      : `${editBtn}<div class="nm">${esc(n.name)}${kidsTxt}</div>
-         ${n.spouse ? `<div class="sp">配 ${esc(n.spouse)}</div>` : ''}
-         ${bdTxt ? `<div class="bd">${esc(bdTxt)}</div>` : ''}
-         ${n.note ? `<div class="note">${esc(n.note)}</div>` : ''}`;
-    if (n.isPh) {
-      div.onclick = READ_ONLY ? null : () => openAdd(n.gi, n.pi, n.si);
-      if (READ_ONLY) div.style.cursor = 'default';
-    } else {
-      div.onclick = () => { openQuery(); document.getElementById('qInput').value = n.name; doQuery(n.name); };
-    }
-    tree.appendChild(div);
   }
 
   /* 同步女性名字开关的界面状态 */
@@ -656,8 +854,10 @@ function render() {
   const mb = document.getElementById('fToggleMenu');
   if (mb) mb.textContent = showF ? '👧 女性名字：显示中' : '👧 女性名字：不显示（只计数）';
 
-  /* 添加表单下拉 */
+  /* 添加/编辑表单下拉（重建时保留当前选中值——编辑弹窗打开期间 render 不得重置世代/父亲，
+     否则保存时会把被清空的选中值写回数据，导致父系条目被删、世代被移动） */
   const aGen = document.getElementById('aGen');
+  const prevGenVal = aGen.value;
   aGen.innerHTML = '';
   DATA.generations.forEach((g, i) => {
     const o = document.createElement('option');
@@ -667,8 +867,10 @@ function render() {
   const o2 = document.createElement('option');
   o2.value = 'new'; o2.textContent = '新建下一世';
   aGen.appendChild(o2);
+  if ([...aGen.options].some(o => o.value === prevGenVal)) aGen.value = prevGenVal;
 
   const aFather = document.getElementById('aFather');
+  const prevFatherVal = aFather.value;
   aFather.innerHTML = '<option value="">— 无 —</option>';
   DATA.generations.forEach((g, gi) => g.people.forEach((p, pi) => {
     const o = document.createElement('option');
@@ -676,7 +878,10 @@ function render() {
     o.textContent = g.title + ' · ' + p.givenName;
     aFather.appendChild(o);
   }));
+  if ([...aFather.options].some(o => o.value === prevFatherVal)) aFather.value = prevFatherVal;
 
+  /* 缩放视图：保持当前比例（按新画布尺寸重新夹取上下限）并同步滚动范围 */
+  applyZoom();
   /* 世代悬浮标签 */
   updateGenFloat();
 }
@@ -687,13 +892,120 @@ function updateGenFloat() {
   const gf = document.getElementById('genFloat');
   if (!wrap || !gf) return;
   const genCount = Math.max(DATA.generations.length, 1);
-  const mid = wrap.scrollTop + wrap.clientHeight / 2;
-  let g = Math.floor((mid - PAD_Y) / GEN_H);
+  const mid = (wrap.scrollTop + wrap.clientHeight / 2) / VIEW_SCALE;   // 换算回未缩放画布坐标
+  let g = Math.floor((mid - CUR_PAD_Y) / GEN_H);
   g = Math.max(0, Math.min(genCount - 1, g));
   gf.textContent = (DATA.generations[g] && DATA.generations[g].title) || genTitleOf(g + 1);
   gf.style.top = (wrap.scrollTop + 12) + 'px';
   gf.style.left = (wrap.scrollLeft + wrap.clientWidth - gf.offsetWidth - 14) + 'px';
+  const zb = document.getElementById('zoomBar');
+  if (zb) {
+    zb.style.top = (wrap.scrollTop + wrap.clientHeight - zb.offsetHeight - 12) + 'px';
+    zb.style.left = (wrap.scrollLeft + wrap.clientWidth - zb.offsetWidth - 14) + 'px';
+  }
+  positionInfoPanel();
 }
+
+/* ---------- 视图缩放与拖拽平移 ----------
+   缩放范围：下限 = 自适应（一屏看全部内容）；上限 = 一屏约三行世代（行距 GEN_H） */
+let VIEW_SCALE = 1, TREE_W = 0, TREE_H = 0;
+
+function zoomLimits() {
+  const wrap = document.getElementById('treeWrap');
+  const aw = (wrap && wrap.clientWidth) || 800;
+  const ah = (wrap && wrap.clientHeight) || 500;
+  const fit = Math.min(aw / (TREE_W || aw), ah / (TREE_H || ah));   // 整棵树（含留白）塞进视口
+  const max = Math.max(fit, ah / (3 * GEN_H));                      // 最大：视口高度 ≈ 3 行
+  return { fit: Math.max(fit, 0.05), max: Math.max(max, 0.05) };
+}
+
+function applyZoom() {
+  const lim = zoomLimits();
+  VIEW_SCALE = Math.min(lim.max, Math.max(lim.fit, VIEW_SCALE));
+  const sizer = document.getElementById('treeSizer');
+  const tree = document.getElementById('tree');
+  if (sizer) {
+    sizer.style.width = (TREE_W * VIEW_SCALE) + 'px';
+    sizer.style.height = (TREE_H * VIEW_SCALE) + 'px';
+  }
+  if (tree) tree.style.transform = 'scale(' + VIEW_SCALE + ')';
+  const pct = document.getElementById('zoomPct');
+  if (pct) pct.textContent = Math.round(VIEW_SCALE * 100) + '%';
+}
+
+/* 以视口内某点 (ox,oy) 为锚缩放 f 倍，保持该点内容不动 */
+function zoomAt(ox, oy, f) {
+  const wrap = document.getElementById('treeWrap');
+  if (!wrap) return;
+  const lim = zoomLimits();
+  const z0 = VIEW_SCALE;
+  const z1 = Math.min(lim.max, Math.max(lim.fit, z0 * f));
+  if (z1 === z0) { applyZoom(); return; }
+  const cx = (wrap.scrollLeft + ox) / z0;
+  const cy = (wrap.scrollTop + oy) / z0;
+  VIEW_SCALE = z1;
+  applyZoom();
+  wrap.scrollLeft = Math.max(0, cx * z1 - ox);
+  wrap.scrollTop = Math.max(0, cy * z1 - oy);
+  updateGenFloat();
+}
+
+function zoomBy(f) {
+  const wrap = document.getElementById('treeWrap');
+  zoomAt(wrap.clientWidth / 2, wrap.clientHeight / 2, f);
+}
+
+/* 自适应：一屏看全部内容并居中 */
+function fitTree() {
+  const wrap = document.getElementById('treeWrap');
+  if (!wrap) return;
+  VIEW_SCALE = zoomLimits().fit;
+  applyZoom();
+  wrap.scrollLeft = Math.max(0, (TREE_W * VIEW_SCALE - wrap.clientWidth) / 2);
+  wrap.scrollTop = Math.max(0, (TREE_H * VIEW_SCALE - wrap.clientHeight) / 2);
+  updateGenFloat();
+}
+
+/* Ctrl + 滚轮：以鼠标位置为锚缩放；普通滚轮保留默认滚动 */
+document.getElementById('treeWrap').addEventListener('wheel', e => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  const r = document.getElementById('treeWrap').getBoundingClientRect();
+  zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+}, { passive: false });
+
+/* 拖拽平移：按住左键拖动即平移视图（移动超 4px 才算拖拽，不影响点卡片/按钮） */
+let dragSt = null, dragSuppressed = false;
+document.getElementById('treeWrap').addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  if (e.target.closest && e.target.closest('#zoomBar')) return;
+  const wrap = document.getElementById('treeWrap');
+  dragSt = { x: e.clientX, y: e.clientY, sl: wrap.scrollLeft, st: wrap.scrollTop, moved: false };
+});
+window.addEventListener('pointermove', e => {
+  if (!dragSt) return;
+  const wrap = document.getElementById('treeWrap');
+  const dx = e.clientX - dragSt.x, dy = e.clientY - dragSt.y;
+  if (!dragSt.moved && Math.abs(dx) + Math.abs(dy) > 4) {
+    dragSt.moved = true;
+    wrap.classList.add('dragging');
+  }
+  if (dragSt.moved) {
+    wrap.scrollLeft = dragSt.sl - dx;
+    wrap.scrollTop = dragSt.st - dy;
+  }
+});
+window.addEventListener('pointerup', () => {
+  if (dragSt && dragSt.moved) dragSuppressed = true;   // 本次拖拽结束后吞掉误触点击
+  if (dragSt) document.getElementById('treeWrap').classList.remove('dragging');
+  dragSt = null;
+});
+document.addEventListener('click', e => {
+  if (dragSuppressed) {
+    e.stopPropagation(); e.preventDefault();
+    dragSuppressed = false;
+  }
+}, true);
 
 function ordOf(si) {
   return ['长子', '次子', '三子', '四子', '五子', '六子'][si] || ('第' + (si + 1) + '子');
@@ -726,12 +1038,14 @@ function kidsStats(p) {
     if (!s.givenName) return;
     if (s.sex === 'f') daughters++; else sons++;
   });
-  /* 子数可直接调整（继子/未录名者计入数字，不在树上生成节点）：取「录名子数」与「声明总数」的较大值 */
+  /* 子/女数可直接调整（继子/未录名者计入数字，不在树上生成节点）：取「录名数」与「声明总数」的较大值 */
   sons = Math.max(sons, p.sonCount || 0);
+  daughters = Math.max(daughters, p.daughterCount || 0);
   return { sons, daughters };
 }
 
 /* 子的数量：直接加减数字（sonCount=声明总数；低于录名子数时不允许再减） */
+let ADD_COUNTS = { sons: 0, daughters: 0 };   // 添加模式下的草稿计数（与编辑页统一样式）
 function namedSonCount(p) {
   let n = 0;
   (p.sons || []).forEach(s => { if (s.givenName && s.sex !== 'f') n++; });
@@ -739,15 +1053,57 @@ function namedSonCount(p) {
 }
 function totalSonCount(p) { return Math.max(namedSonCount(p), p.sonCount || 0); }
 function refreshSonCountDisp() {
-  if (!EDITING) return;
+  const el = document.getElementById('sonCountDisp');
+  if (!el) return;
+  if (!EDITING) { el.textContent = ADD_COUNTS.sons; return; }   // 添加模式：草稿计数
   const g = DATA.generations[EDITING.gi];
   const p = g && g.people[EDITING.pi];
   if (!p) return;
-  const el = document.getElementById('sonCountDisp');
-  if (el) el.textContent = totalSonCount(p);
+  el.textContent = totalSonCount(p);
+}
+
+/* 女的数量：与子的数量同规则（daughterCount=声明总数；低于录名女数时不允许再减） */
+function namedDaughterCount(p) {
+  let n = 0;
+  (p.sons || []).forEach(s => { if (s.givenName && s.sex === 'f') n++; });
+  return n;
+}
+function totalDaughterCount(p) { return Math.max(namedDaughterCount(p), p.daughterCount || 0); }
+function refreshDauCountDisp() {
+  const el = document.getElementById('dauCountDisp');
+  if (!el) return;
+  if (!EDITING) { el.textContent = ADD_COUNTS.daughters; return; }   // 添加模式：草稿计数
+  const g = DATA.generations[EDITING.gi];
+  const p = g && g.people[EDITING.pi];
+  if (!p) return;
+  el.textContent = totalDaughterCount(p);
+}
+function adjustDaughterCount(delta) {
+  if (!EDITING) {   // 添加模式：调整草稿计数（无录名下限）
+    ADD_COUNTS.daughters = Math.max(0, ADD_COUNTS.daughters + delta);
+    refreshDauCountDisp();
+    return;
+  }
+  const g = DATA.generations[EDITING.gi];
+  const p = g && g.people[EDITING.pi];
+  if (!p) return;
+  const named = namedDaughterCount(p);
+  const next = totalDaughterCount(p) + delta;
+  if (next < named) {
+    alert(`已有 ${named} 个录名的女，数量不能再减；如需减少请先删除对应人员记录。`);
+    return;
+  }
+  if (next === named) delete p.daughterCount; else p.daughterCount = next;
+  saveData();
+  refreshDauCountDisp();
+  render();
 }
 function adjustSonCount(delta) {
-  if (!EDITING) return;
+  if (!EDITING) {   // 添加模式：调整草稿计数（无录名下限）
+    ADD_COUNTS.sons = Math.max(0, ADD_COUNTS.sons + delta);
+    refreshSonCountDisp();
+    return;
+  }
   const g = DATA.generations[EDITING.gi];
   const p = g && g.people[EDITING.pi];
   if (!p) return;
@@ -784,6 +1140,194 @@ function scrollToRow(i) {
   }
 }
 
+/* 查询定位：视图滚动到目标人物卡片（居中）并高亮闪烁；close=true 时收起弹窗让用户看到树 */
+function scrollToNode(nodeId, close) {
+  const el = document.getElementById('znode-' + nodeId);
+  if (!el) return;
+  if (close) closeDlg();
+  /* 卡片以 translate(-50%,-50%) 定位在 (left,top) 交点上，布局坐标即中心点；
+     乘以当前缩放比例换算为屏幕坐标，再滚动到视口正中 */
+  const wrap = document.getElementById('treeWrap');
+  const cx = el.offsetLeft * VIEW_SCALE;
+  const cy = el.offsetTop * VIEW_SCALE;
+  const tx = Math.max(0, cx - wrap.clientWidth / 2);
+  const ty = Math.max(0, cy - wrap.clientHeight / 2);
+  if (wrap.scrollTo) wrap.scrollTo({ left: tx, top: ty, behavior: 'smooth' });
+  else { wrap.scrollLeft = tx; wrap.scrollTop = ty; }
+  el.classList.add('locate-flash');
+  setTimeout(() => el.classList.remove('locate-flash'), 2200);
+}
+
+/* ---------- 人物信息面板：点画布卡片展开，替代原来的弹查询 ---------- */
+function hideInfo() {
+  const p = document.getElementById('infoPanel');
+  if (p) p.style.display = 'none';
+}
+function positionInfoPanel() {
+  const wrap = document.getElementById('treeWrap');
+  const panel = document.getElementById('infoPanel');
+  if (!wrap || !panel || panel.style.display === 'none') return;
+  const top = wrap.scrollTop + wrap.clientHeight - panel.offsetHeight - 14;
+  panel.style.top = Math.max(wrap.scrollTop + 8, top) + 'px';
+  panel.style.left = (wrap.scrollLeft + 14) + 'px';
+}
+/* 找某正式人物的父系（按 buildTree 的融合结果反查） */
+function infoFatherOf(gi, pi) {
+  const node = buildTree().find(n => n.id === 'g' + gi + 'p' + pi);
+  if (!node || !node.father) return null;
+  const m = node.father.match(/^g(\d+)p(\d+)$/);
+  if (!m) return null;
+  const fg = DATA.generations[+m[1]];
+  const fp = fg && fg.people[+m[2]];
+  return fp ? { name: fp.givenName, title: fg.title } : null;
+}
+function showInfo(gi, pi) {
+  const g = DATA.generations[gi];
+  const p = g && g.people[pi];
+  if (!p) return;
+  const ks = kidsStats(p);
+  const fa = infoFatherOf(gi, pi);
+  const sonList = (p.sons || []).map((s, si) =>
+    (s.givenName || ordOfSons(gi, pi, si) + '（待录）') + (s.adopt ? '（继子）' : '')).join('、');
+  document.getElementById('infoName').textContent = p.givenName;
+  document.getElementById('infoBody').innerHTML =
+    `<div class="ir">${esc(g.title)}${p.adopt ? ' <span class="adoptTag">继子</span>' : ''}</div>` +
+    `<div class="ir">配偶：${esc(p.spouse || '未录')}</div>` +
+    ((p.birth || p.death) ? `<div class="ir">生卒：${esc([p.birth, p.death].filter(Boolean).join(' – '))}</div>` : '') +
+    (fa ? `<div class="ir">父亲：${esc(fa.name)}（${esc(fa.title)}）</div>`
+        : (gi > 0 ? '<div class="ir irWarn">父亲：未关联（可用编辑弹窗选择父亲）</div>' : '')) +
+    `<div class="ir">子嗣：子${ks.sons}${ks.daughters > 0 ? '、女' + ks.daughters : ''}${sonList ? '（' + esc(sonList) + '）' : ''}</div>` +
+    (p.note ? `<div class="ir">备注：${esc(p.note)}</div>` : '') +
+    `<div class="infoBtns">${READ_ONLY ? '' : `<span class="delBtn locateBtn" onclick="openEdit(${gi},${pi}); event.stopPropagation();">✎ 编辑此人</span>`}` +
+    `<span class="delBtn locateBtn" onclick="hideInfo()">收起</span></div>`;
+  document.getElementById('infoPanel').style.display = 'block';
+  positionInfoPanel();
+}
+/* 未登记的名条（父系子嗣已点名、下一世无正式记录） */
+function showInfoSon(gi, pi, si) {
+  const g = DATA.generations[gi];
+  const f = g && g.people[pi];
+  const s = f && (f.sons || [])[si];
+  if (!s) return;
+  const next = DATA.generations[gi + 1];
+  const registered = next && next.people.some(x => x.givenName === s.givenName);
+  document.getElementById('infoName').textContent = s.givenName || '（未录名）';
+  document.getElementById('infoBody').innerHTML =
+    `<div class="ir">${esc((next || {}).title || genTitleOf(gi + 2))} · ${esc(f.givenName)}（${esc(g.title)}）之子 · ${ordOfSons(gi, pi, si)}</div>` +
+    (s.adopt ? '<div class="ir">继子（过继）</div>' : '') +
+    (s.givenName && !registered ? '<div class="ir irWarn">此人尚未登记为正式人物（树上只有挂线名条，无独立档案）</div>' : '') +
+    `<div class="infoBtns">${(!READ_ONLY && s.givenName && !registered) ? `<span class="delBtn locateBtn" onclick="registerSon(${gi},${pi},${si})">✎ 登记为正式人物</span>` : ''}` +
+    `<span class="delBtn locateBtn" onclick="hideInfo()">收起</span></div>`;
+  document.getElementById('infoPanel').style.display = 'block';
+  positionInfoPanel();
+}
+function registerSon(gi, pi, si) {
+  const s = (DATA.generations[gi].people[pi].sons || [])[si];
+  openAdd(gi, pi, si);
+  if (s && s.givenName) document.getElementById('aName').value = s.givenName;
+}
+
+/* ---------- 数据体检：排查「信息相同却不融合」的方块 ---------- */
+function scanDataIssues() {
+  const issues = [];
+  /* 1. 子嗣条目点了名，但下一世没有同名正式人物；该名字却登记在别的世代（登错世代） */
+  /* 注：同一父亲下多个同名条目 = 同胞同名特例，属合法数据，不再作为问题 */
+  DATA.generations.forEach((g, gi) => (g.people || []).forEach((p, pi) => (p.sons || []).forEach((s, si) => {
+    if (!s.givenName) return;
+    const next = DATA.generations[gi + 1];
+    if (next && next.people.some(x => x.givenName === s.givenName)) return;
+    DATA.generations.forEach((g2, g2i) => {
+      if (g2i === gi + 1) return;
+      (g2.people || []).forEach((p2, p2i) => {
+        if (p2.givenName === s.givenName) {
+          issues.push({ type: 'misplaced', gi, pi, si, tgi: g2i, tpi: p2i,
+            msg: `「${s.givenName}」挂在 ${g.title}·${p.givenName} 名下，但正式记录登记在${g2.title}（登错世代，未融合）`, fix: true });
+        }
+      });
+    });
+  })));
+  /* 2. 同一世代有同名正式人物（一个融进父系，另一个可能是孤块） */
+  DATA.generations.forEach((g, gi) => {
+    const cnt = {};
+    (g.people || []).forEach(p => { if (p.givenName) cnt[p.givenName] = (cnt[p.givenName] || 0) + 1; });
+    Object.keys(cnt).forEach(k => {
+      if (cnt[k] > 1) issues.push({ type: 'dupPerson', gi, name: k,
+        msg: `${g.title} 有 ${cnt[k]} 位「${k}」：若为同胞同名属正常；若是重复录入请人工核对删除`, fix: false });
+    });
+  });
+  /* 3. 孤立正式人物：非第一世、没有任何父系连线（树外独立块，如漏挂父亲的录入） */
+  const claimed = new Set();
+  DATA.generations.forEach((g, gi) => (g.people || []).forEach(p => (p.sons || []).forEach(s => {
+    if (!s.givenName) return;
+    const next = DATA.generations[gi + 1];
+    const idx = next ? next.people.findIndex((x, xi) => x.givenName === s.givenName && !claimed.has((gi + 1) + 'p' + xi)) : -1;
+    if (idx >= 0) claimed.add((gi + 1) + 'p' + idx);
+  })));
+  DATA.generations.forEach((g, gi) => { if (gi === 0) return;
+    (g.people || []).forEach((p, pi) => {
+      if (!claimed.has(gi + 'p' + pi)) {
+        issues.push({ type: 'orphan', gi, pi, canDel: true,
+          msg: `「${p.givenName}」在${g.title}但没有父系连线（树外独立块，请确认后删除或挂接父亲）` });
+      }
+    });
+  });
+  return issues;
+}
+/* 清理全部待录占位（无名字的子嗣空槽）：不影响任何已录名人物 */
+function cleanupPlaceholders() {
+  if (!confirm('确定清除全部「待录」占位条目吗？\n占位只是未录名的空槽，清除不影响任何已录名人物和声明数量。')) return;
+  let n = 0;
+  DATA.generations.forEach(g => g.people.forEach(p => {
+    if (Array.isArray(p.sons)) {
+      const before = p.sons.length;
+      p.sons = p.sons.filter(s => s.givenName);
+      n += before - p.sons.length;
+    }
+  }));
+  saveData(); render(); openCheckup();
+  alert(`已清除 ${n} 个待录占位。`);
+}
+/* 删除树外孤立人物（无父系连线者） */
+function delOrphan(gi, pi) {
+  const g = DATA.generations[gi];
+  const p = g && g.people[pi];
+  if (!p) return;
+  if (!confirm(`确定删除「${p.givenName}」（${g.title}）吗？\n此人没有父系连线，删除后不可恢复；若其名下挂有子嗣将一并脱离该支。`)) return;
+  g.people.splice(pi, 1);
+  saveData(); render(); openCheckup();
+}
+let CHECKUP_ISSUES = [];
+function openCheckup() {
+  switchView('checkupView'); showDlg();
+  CHECKUP_ISSUES = scanDataIssues();
+  const box = document.getElementById('checkupResult');
+  if (!CHECKUP_ISSUES.length) {
+    box.innerHTML = '<div class="none">✅ 体检通过：所有子嗣条目与正式人物均已正确融合，未发现重复或登错世代。</div>';
+    return;
+  }
+  box.innerHTML = '<div class="none">发现 ' + CHECKUP_ISSUES.length + ' 个问题：</div>' +
+    CHECKUP_ISSUES.map((it, i) =>
+      `<div class="hit"><b>${esc(it.msg)}</b><br>` +
+      (it.fix ? `<span class="delBtn locateBtn" onclick="applyFix(${i})">🔧 一键修复</span> ` : '') +
+      (it.canDel ? `<span class="delBtn" onclick="delOrphan(${it.gi},${it.pi})">删除此人</span> ` : '') +
+      `</div>`).join('');
+}
+function applyFix(i) {
+  const it = CHECKUP_ISSUES[i];
+  if (!it) return;
+  if (it.type === 'misplaced') {
+    const entry = ((DATA.generations[it.gi].people[it.pi] || {}).sons || [])[it.si];
+    const from = DATA.generations[it.tgi];
+    const person = from && from.people[it.tpi];
+    if (!entry || !person || person.givenName !== entry.givenName) return;
+    from.people.splice(it.tpi, 1);
+    let next = DATA.generations[it.gi + 1];
+    if (!next) { next = { title: genTitleOf(it.gi + 2), people: [] }; DATA.generations.push(next); }
+    next.people.push(person);   // 移入正确世代，buildTree 按名字自动融合；长幼顺序可用「兄弟排序」微调
+  } else return;
+  saveData(); render(); openCheckup();
+}
+
 /* ---------- 弹窗 ---------- */
 function showDlg() { document.getElementById('mask').classList.add('show'); }
 function closeDlg() {
@@ -797,11 +1341,12 @@ function closeDlg() {
   ADD_SI = null;
 }
 function switchView(name) {
-  ['menuView', 'queryView', 'addView'].forEach(v => {
+  ['menuView', 'queryView', 'addView', 'checkupView'].forEach(v => {
     document.getElementById(v).style.display = (v === name) ? '' : 'none';
   });
   document.getElementById('dlgTitle').textContent =
-    name === 'menuView' ? '菜单' : name === 'queryView' ? '查询' : '添加人物';
+    name === 'menuView' ? '菜单' : name === 'queryView' ? '查询'
+      : name === 'checkupView' ? '数据体检' : '添加人物';
 }
 function showMenu() { switchView('menuView'); showDlg(); }
 
@@ -835,9 +1380,13 @@ function doQuery(q) {
     box.innerHTML = '<div class="none">未找到「' + esc(kw) + '」</div>';
     return;
   }
+  let firstNodeId = null;
   hits.forEach(h => {
     const name = h.son ? h.son.givenName : h.p.givenName;
     const ks = kidsStats(h.p);
+    /* 树上对应卡片的节点 id：正式人物=g{gi}p{pi}；未登记子嗣条目=s{gi}_{pi}_{si} */
+    const nodeId = h.son ? ('s' + h.gi + '_' + h.pi + '_' + h.si) : ('g' + h.gi + 'p' + h.pi);
+    if (!firstNodeId) firstNodeId = nodeId;
     const div = document.createElement('div');
     div.className = 'hit';
     const delHtml = READ_ONLY ? '' : (h.son
@@ -851,9 +1400,12 @@ function doQuery(q) {
       (h.son
         ? `父：${esc(h.p.givenName)}（${esc(h.g.title)}）`
         : `子嗣：子${ks.sons}${ks.daughters > 0 ? '、女' + ks.daughters : ''}（${(h.p.sons || []).map((s, i) => s.givenName || ordOfSons(h.gi, h.pi, i) + '（待录）').join('、')}）`) +
+      `<div><span class="delBtn locateBtn" onclick="scrollToNode('${nodeId}', true)">📍 定位到树上位置</span></div>` +
       delHtml;
     box.appendChild(div);
   });
+  /* 查询即定位：视图自动滚动到第一条结果的位置（弹窗保持打开，方便换关键词） */
+  scrollToNode(firstNodeId, false);
 }
 
 /* ---------- 删除 ---------- */
@@ -863,12 +1415,15 @@ function delPerson(gi, pi) {
   const p = g.people[pi];
   if (!p) return;
   if (!confirm(`确定删除「${p.givenName}」（${g.title}）吗？\n其在父系子嗣条目中的名字将恢复为占位。`)) return;
-  // 父亲的 sons 中同名条目恢复占位
-  DATA.generations.forEach(gg => gg.people.forEach(pp => {
-    (pp.sons || []).forEach(s => {
-      if (s.givenName === p.givenName) { s.givenName = ''; s.sex = 'm'; delete s.adopt; }
-    });
-  }));
+  // 只把「认领本人」的那条父系条目恢复占位；不得动其他同名人物的条目
+  // （旧版按名字全局清空，删除一个「兴」会把始祖支系等所有同名连线一起误清）
+  const claim = findClaimingEntry(gi, pi);
+  if (claim) {
+    const fg = DATA.generations[claim.fgi];
+    const fp = fg && fg.people[claim.fpi];
+    const se = fp && (fp.sons || [])[claim.si];
+    if (se && se.givenName === p.givenName) { se.givenName = ''; se.sex = 'm'; delete se.adopt; }
+  }
   g.people.splice(pi, 1);
   saveData();
   closeDlg();
@@ -885,6 +1440,17 @@ function clearSon(gi, pi, si) {
   s.givenName = ''; s.sex = 'm'; delete s.adopt;
   saveData();
   closeDlg();
+  render();
+}
+
+/* 删除待录占位条目（空槽直接移除；只接受无名字的槽位，防止误删已录名记录） */
+function delPh(gi, pi, si) {
+  const g = DATA.generations[gi];
+  const p = g && g.people[pi];
+  const s = p && (p.sons || [])[si];
+  if (!s || s.givenName) return;
+  p.sons.splice(si, 1);
+  saveData();
   render();
 }
 
@@ -907,8 +1473,14 @@ function openAdd(gi, pi, si) {
   if (m) m.checked = true;
   const ab0 = document.getElementById('aAdopt');
   if (ab0) ab0.checked = false;
+  /* 与编辑页统一的样式：子/女数量步进器同样显示（草稿计数，保存时写入新人物） */
+  ADD_COUNTS = { sons: 0, daughters: 0 };
   const asr0 = document.getElementById('addSonRow');
-  if (asr0) asr0.style.display = 'none';
+  if (asr0) asr0.style.display = '';
+  const adr0 = document.getElementById('addDauRow');
+  if (adr0) adr0.style.display = '';
+  refreshSonCountDisp();
+  refreshDauCountDisp();
   render();   // 刷新下拉
   const aGen = document.getElementById('aGen');
   const aFather = document.getElementById('aFather');
@@ -929,11 +1501,10 @@ function openEdit(gi, pi) {
   if (!p) return;
   EDITING = { gi, pi };
   document.getElementById('dlgTitle').textContent = '编辑人物';
-  // 自动识别当前父系（编辑前），传给 submitEdit 用于换挂
+  // 自动识别当前父系（认领本人条目的那位父亲），传给 submitEdit 用于换挂
   let fatherVal = '';
-  DATA.generations.forEach((gg, fgi) => gg.people.forEach((pp, fpi) => {
-    if ((pp.sons || []).some(s => s.givenName === p.givenName)) fatherVal = fgi + ':' + fpi;
-  }));
+  const claimE = findClaimingEntry(gi, pi);
+  if (claimE) fatherVal = claimE.fgi + ':' + claimE.fpi;
   const saveBtn = document.getElementById('aSaveBtn');
   if (saveBtn) { saveBtn.textContent = '更新'; saveBtn.onclick = () => submitEdit(gi, pi, fatherVal); }
   switchView('addView'); showDlg();
@@ -948,7 +1519,10 @@ function openEdit(gi, pi) {
   if (ab1) ab1.checked = !!p.adopt;
   const asr1 = document.getElementById('addSonRow');
   if (asr1) asr1.style.display = '';
+  const adr1 = document.getElementById('addDauRow');
+  if (adr1) adr1.style.display = '';
   refreshSonCountDisp();
+  refreshDauCountDisp();
   render();   // 刷新下拉
   const aGen = document.getElementById('aGen');
   const aFather = document.getElementById('aFather');
@@ -973,10 +1547,8 @@ function reorderSibling(dir) {
   const g = DATA.generations[EDITING.gi];
   const p = g && g.people[EDITING.pi];
   if (!p) return;
-  let f = null;
-  DATA.generations.forEach(gg => gg.people.forEach(pp => {
-    if ((pp.sons || []).some(s => s.givenName === p.givenName)) f = pp;
-  }));
+  const claim = findClaimingEntry(EDITING.gi, EDITING.pi);
+  let f = claim ? (DATA.generations[claim.fgi] || {}).people[claim.fpi] : null;
   if (!f) { alert('该成员未挂父系，无法参与兄弟排序。'); return; }
   const si = f.sons.findIndex(s => s.givenName === p.givenName);
   const ns = si + dir;
@@ -1034,6 +1606,8 @@ function submitEdit(gi, pi, oldFatherVal) {
   const p = g.people[pi];
   if (!p) return;
   const oldName = p.givenName;
+  /* 必须在改 p.givenName 之前确定「认领本人」的父系条目（认领按名字匹配，改名后找不到） */
+  const claim0 = findClaimingEntry(gi, pi);
   const name = document.getElementById('aName').value.trim();
   const spouse = document.getElementById('aSpouse').value.trim();
   const note = document.getElementById('aNote').value.trim();
@@ -1063,19 +1637,19 @@ function submitEdit(gi, pi, oldFatherVal) {
   const adoptEl = document.getElementById('aAdopt');
   if (adoptEl && adoptEl.checked) p.adopt = true; else delete p.adopt;
   // 若改名，同步更新父系子嗣条目中的名字与性别
-  if (name !== oldName) {
-    DATA.generations.forEach(gg => gg.people.forEach(pp => {
-      (pp.sons || []).forEach(s => { if (s.givenName === oldName) { s.givenName = name; s.sex = sex; if (p.adopt) s.adopt = true; else delete s.adopt; } });
-    }));
+  // 只改「认领本人」的那条条目，不碰其他同名人物的条目
+  if (name !== oldName && claim0) {
+    const fgR = DATA.generations[claim0.fgi];
+    const fpR = fgR && fgR.people[claim0.fpi];
+    const se = fpR && (fpR.sons || [])[claim0.si];
+    if (se && se.givenName === oldName) { se.givenName = name; se.sex = sex; if (p.adopt) se.adopt = true; else delete se.adopt; }
   }
 
   /* —— 所属世代 / 父亲调整（genVal/fatherVal 已在上方守卫处读取）—— */
   if (oldFatherVal === undefined) {
-    // 兼容直接调用：自动识别当前父系
+    // 兼容直接调用：自动识别当前父系（用改名前确定的认领条目）
     oldFatherVal = '';
-    DATA.generations.forEach((gg, fgi) => gg.people.forEach((pp, fpi) => {
-      if ((pp.sons || []).some(s => s.givenName === p.givenName)) oldFatherVal = fgi + ':' + fpi;
-    }));
+    if (claim0) oldFatherVal = claim0.fgi + ':' + claim0.fpi;
   }
   const chosenGen = genVal === 'new' ? DATA.generations.length : parseInt(genVal, 10);
   let effGen = chosenGen;
@@ -1166,6 +1740,9 @@ function reallyAdd(name, spouse, note, genVal, fatherVal, sex, si, birth, death,
     birth: birth || '', death: death || '',
   };
   if (adopt) person.adopt = true;
+  /* 添加页与编辑页统一：步进器草稿计数写入新人物 */
+  if (ADD_COUNTS.sons > 0) person.sonCount = ADD_COUNTS.sons;
+  if (ADD_COUNTS.daughters > 0) person.daughterCount = ADD_COUNTS.daughters;
   let targetGi;
   if (genVal === 'new') {
     DATA.generations.push({ title: genTitleOf(DATA.generations.length + 1), people: [] });
@@ -1215,6 +1792,15 @@ function linkFather(fatherVal, name, sex, si, adopt) {
   if (!Array.isArray(f.sons)) f.sons = [];
   const mark = e => { if (adopt) e.adopt = true; };
   if (f.sons.some(s => s.givenName === name)) {
+    /* 同名条目已存在。特例：同胞同名——下一世同名正式人物多于已有同名条目时，
+       说明确实有两个同名儿子（如第十四世两个「明」），允许再挂一条同名条目 */
+    const nextGen = DATA.generations[fgi + 1];
+    const formalCnt = nextGen ? nextGen.people.filter(x => x.givenName === name).length : 0;
+    const entryCnt = f.sons.filter(s => s.givenName === name).length;
+    if (entryCnt < formalCnt) {
+      f.sons.push({ givenName: name, sex: sex, adopt: adopt ? true : undefined });
+      return;
+    }
     if (adopt) { const e0 = f.sons.find(s => s.givenName === name); if (e0) e0.adopt = true; }
     return;   // 已挂在该父亲名下，避免重复
   }
@@ -1309,6 +1895,123 @@ function scheduleAutoBackup() {
   }, 1500);
 }
 
+/* ---------- 每5分钟自动快照：另存独立文件夹，特殊情况可直接恢复 ----------
+   优先写入用户绑定的快照文件夹（时间戳文件名，保留最近30份，超过自动清理）；
+   浏览器不支持文件夹写入时兜底存浏览器内部（保留最近10份，可从菜单恢复）。 */
+let snapDirHandle = null;
+let snapTimer = null;
+let lastSnapJson = '';
+const SNAP_KEEP = 30;
+const SNAP_KEY = 'zupu_autosnaps';
+
+function snapStamp(d) {
+  const p = n => String(n).padStart(2, '0');
+  return '' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+}
+function listInternalSnaps() {
+  try { return JSON.parse(localStorage.getItem(SNAP_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveInternalSnap(name, json) {
+  try {
+    const arr = listInternalSnaps();
+    arr.unshift({ ts: Date.now(), name, json });
+    while (arr.length > 10) arr.pop();
+    localStorage.setItem(SNAP_KEY, JSON.stringify(arr));
+    return true;
+  } catch (e) { return false; }
+}
+async function pruneSnapDir() {
+  if (!snapDirHandle) return;
+  const names = [];
+  for await (const entry of snapDirHandle.values()) {
+    if (entry.kind === 'file' && entry.name.startsWith('族谱自动快照_')) names.push(entry.name);
+  }
+  names.sort().reverse();
+  for (const name of names.slice(SNAP_KEEP)) {
+    try { await snapDirHandle.removeEntry(name); } catch (e) {}
+  }
+}
+async function autoSnapshot(force) {
+  const json = JSON.stringify(DATA, null, 2);
+  if (!force && json === lastSnapJson) return;   // 数据没变不重复快照
+  lastSnapJson = json;
+  const name = '族谱自动快照_' + snapStamp(new Date()) + '.json';
+  if (snapDirHandle) {
+    try {
+      const fh = await snapDirHandle.getFileHandle(name, { create: true });
+      const w = await fh.createWritable();
+      await w.write(json);
+      await w.close();
+      await pruneSnapDir();
+      showToast('已自动快照到文件夹（' + name + '）');
+      return;
+    } catch (e) { /* 文件夹写入失败 → 内部兜底 */ }
+  }
+  if (saveInternalSnap(name, json)) showToast('已自动快照到浏览器内部（' + name + '）');
+}
+function startSnapTimer() {
+  if (snapTimer) return;
+  snapTimer = setInterval(() => autoSnapshot(false), 5 * 60 * 1000);
+}
+async function bindSnapDir() {
+  if (!window.showDirectoryPicker) {
+    startSnapTimer();
+    alert('当前浏览器不支持选择文件夹。\n已启用浏览器内部快照：每5分钟一次，保留最近10份，可通过菜单「⏱ 自动快照」恢复。');
+    return;
+  }
+  try {
+    snapDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await idbSet('snapDir', snapDirHandle);
+    lastSnapJson = '';
+    await autoSnapshot(true);
+    startSnapTimer();
+    alert('自动快照已开启：每5分钟保存一份到所选文件夹（保留最近30份）。\n出现特殊情况时，用「恢复数据」选择任一快照文件即可还原。');
+  } catch (e) { /* 用户取消选择 */ }
+}
+function restoreInternalSnap(i) {
+  const arr = listInternalSnaps();
+  const s = arr[i];
+  if (!s) { alert('没有可恢复的内部快照'); return; }
+  if (!confirm('恢复快照 ' + s.name + '？\n当前未备份的内容将被覆盖。')) return;
+  try {
+    const obj = JSON.parse(s.json);
+    if (!obj || !Array.isArray(obj.generations)) throw new Error('bad');
+    DATA = obj;
+    saveData(); render(); closeDlg();
+    alert('快照已恢复');
+  } catch (e) { alert('快照格式错误'); }
+}
+async function openSnapTool() {
+  if (snapDirHandle) {
+    if (confirm('自动快照运行中：每5分钟写入所选文件夹，保留最近30份。\n\n确定 = 重新选择快照文件夹')) bindSnapDir();
+    return;
+  }
+  const arr = listInternalSnaps();
+  if (!window.showDirectoryPicker) {
+    if (arr.length && confirm('当前浏览器不支持文件夹快照，已启用内部快照（' + arr.length + ' 份，最新：' + new Date(arr[0].ts).toLocaleString() + '）。\n\n确定 = 恢复最新内部快照')) restoreInternalSnap(0);
+    else if (!arr.length) alert('当前浏览器不支持文件夹快照；内部快照将在数据变化后自动生成。');
+    return;
+  }
+  if (arr.length && confirm('检测到浏览器内部自动快照（' + arr.length + ' 份，最新：' + new Date(arr[0].ts).toLocaleString() + '）。\n\n确定 = 恢复最新内部快照\n取消 = 绑定快照文件夹（每5分钟另存一份，保留30份）')) { restoreInternalSnap(0); return; }
+  bindSnapDir();
+}
+/* 启动时找回上次绑定的快照文件夹（权限已授予则自动续跑） */
+window.addEventListener('DOMContentLoaded', () => {
+  (async () => {
+    if (!window.showDirectoryPicker || !window.indexedDB) return;
+    const h = await idbGet('snapDir');
+    if (!h) return;
+    try {
+      if (await h.queryPermission({ mode: 'readwrite' }) === 'granted') {
+        snapDirHandle = h;
+        startSnapTimer();
+      } else {
+        showToast('请点菜单「⏱ 自动快照」以恢复自动快照权限');
+      }
+    } catch (e) {}
+  })();
+});
+
 async function exportData() {
   closeDlg();
   try {
@@ -1389,7 +2092,11 @@ document.getElementById('mask').addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDlg(); });
 document.getElementById('treeWrap').addEventListener('scroll', updateGenFloat);
-window.addEventListener('resize', updateGenFloat);
+let rzTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(rzTimer);
+  rzTimer = setTimeout(() => { render(); updateGenFloat(); }, 200);   // 窗口变化后画布重新撑满显示区
+});
 </script>
 <div id="toast"></div>
 </body>
