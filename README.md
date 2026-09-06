@@ -1,4 +1,4 @@
-# 路氏族谱
+# 族谱
 
 在线浏览：启用 GitHub Pages 后访问 `https://<用户名>.github.io/<仓库名>/`
 
@@ -27,8 +27,8 @@ window.ZUPU_DATA = {
   "introText": "",
   "generations": [
     { "title": "第一世", "people": [
-      { "givenName": "世昌",            // 名（不含姓）
-        "spouse": "配赵氏",             // 配偶
+      { "givenName": "名字",            // 名（不含姓）
+        "spouse": "配偶形式",             // 配偶
         "note": "",                     // 备注（自动换行，最多3行）
         "sex": "m",                     // m 男 / f 女
         "birth": "", "death": "",       // 生 / 卒
